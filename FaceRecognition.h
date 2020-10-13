@@ -1,5 +1,5 @@
 #pragma once
-typedef matrix<float, 0, 1> faceFeature;
+typedef matrix<float, 1, 128> faceFeature;
 typedef radial_basis_kernel<faceFeature> kernelType;
 
 class FaceRecognition{
@@ -40,7 +40,7 @@ protected:
 	anet_type net;
 	Mat defaultImage = imread("Lenna.png");
 	Mat frame;
-	image_window win;
+	//image_window win;
 	std::vector<matrix<rgb_pixel>> faces;
 
 	

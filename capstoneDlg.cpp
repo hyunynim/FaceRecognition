@@ -105,15 +105,25 @@ BOOL CcapstoneDlg::OnInitDialog()
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
 	recognizer = new FaceRecognition();
 	LoadKnownImage();
+	KnownImagePreprocessing();
+
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
 void CcapstoneDlg::LoadKnownImage() {
-	freopen("img/lists.txt", "r", stdin);
-	char fName[222];
-	while (~scanf("%s", fName)) {
-		Mat img = imread(fName);
+	freopen("img/list.txt", "r", stdin);
+	FILE * err = freopen("err.txt", "w", stdout);
+	std::string fName;
+	while (~scanf("%s", fName.c_str())) {
+		Mat img = imread(fName.c_str(), -1);
 		imgs.push_back(img);
+		if (img.empty()) {
+			MessageBox("tq");
+		}
+		printf("Name: %s\n", fName.c_str());
+		printf("depth: %d\n", img.depth());
+		printf("channel: %d\n", img.channels());
 	}
+	fclose(err);
 }
 void CcapstoneDlg::KnownImagePreprocessing() {
 	recognizer->AddToSVM(imgs);

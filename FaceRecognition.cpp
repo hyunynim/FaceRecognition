@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "FaceRecognition.h"
-const int DEBUGING = 1;
+const int DEBUGING = 0;
 
 FaceRecognition::FaceRecognition() {
 	detector = get_frontal_face_detector();
@@ -15,7 +15,7 @@ FaceRecognition::FaceRecognition() {
 		cv_image<bgr_pixel> tmpImage(defaultImage);
 		assign_image(img, tmpImage);
 
-		win.set_image(img);
+		//win.set_image(img);
 	}
 }
 
@@ -103,7 +103,9 @@ void FaceRecognition::Train() {
 
 	for (int i = 0; i < faceDescriptors.size(); ++i) 
 		labels.push_back(i + 1);
-
+	MessageBox(NULL, "Parameters setting done", 0, 0);
+	//cross_validate_trainer(batch_cached(trainer, 0.1), faceDescriptors, labels, 4);
+	MessageBox(NULL, "cross_validate_trainer setting done", 0, 0);
 	df = verbose_batch_cached(trainer, 0.1).train(faceDescriptors, labels);
 }
 std::vector<faceFeature> FaceRecognition::MatToFaceFeture(Mat& img) {
@@ -119,4 +121,5 @@ float FaceRecognition::Prediction(Mat& img) {
 		printf("%f\n", df(feature[i]));
 	}
 	fclose(fp);
+	return 0.0;
 }
