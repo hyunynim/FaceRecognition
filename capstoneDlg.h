@@ -42,4 +42,5 @@ protected:
 
 public:
 	afx_msg void OnBnClickedTestButton();
+	afx_msg void OnBnClickedLoadimage();
 };

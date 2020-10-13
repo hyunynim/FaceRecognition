@@ -68,6 +68,7 @@ BEGIN_MESSAGE_MAP(CcapstoneDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_TEST_BUTTON, &CcapstoneDlg::OnBnClickedTestButton)
+	ON_BN_CLICKED(IDC_LOADIMAGE, &CcapstoneDlg::OnBnClickedLoadimage)
 END_MESSAGE_MAP()
 
 
@@ -103,6 +104,7 @@ BOOL CcapstoneDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
+	recognizer = new FaceRecognition();
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -209,7 +211,7 @@ Mat CcapstoneDlg::hwnd2mat(HWND hwnd) {
 void CcapstoneDlg::OnBnClickedTestButton()
 {
 	FaceRecognition* fr = new FaceRecognition();
-	
+
 	return;
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	HaarCascadeInit();
@@ -254,3 +256,21 @@ void CcapstoneDlg::DetectAndDisplay(Mat frame)
 	imshow("Test", frame);
 }
 
+
+
+void CcapstoneDlg::OnBnClickedLoadimage()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+
+	static TCHAR BASED_CODE szFilter[] = _T("이미지 파일(*.BMP, *.GIF, *.JPG, *.PNG) | *.BMP;*.GIF;*.JPG;*.PNG;*.bmp;*.jpg;*.gif;*.png |");
+
+	CFileDialog dlg(TRUE, _T("*.jpg"), _T("image"), OFN_HIDEREADONLY, szFilter);
+
+	if (IDOK == dlg.DoModal()) {
+		string pathName = dlg.GetPathName();
+
+		Mat img = imread(pathName, IMREAD_UNCHANGED);
+		MessageBox(pathName.c_str());
+
+	}
+}

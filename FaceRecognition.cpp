@@ -19,20 +19,31 @@ FaceRecognition::FaceRecognition() {
 	}
 }
 
+matrix<rgb_pixel> FaceRecognition::MatToRGB(Mat& src) {
+	matrix<rgb_pixel> img;
+
+	cv_image<bgr_pixel> tmpImage(src);
+	assign_image(img, tmpImage);
+
+	return img;
+}
+//For SVM training
 std::vector<matrix<rgb_pixel>> FaceRecognition::JitterImage(const matrix<rgb_pixel>& img) {
 	// All this function does is make 100 copies of img, all slightly jittered by being
 	// zoomed, rotated, and translated a little bit differently. They are also randomly
 	// mirrored left to right.
 	thread_local dlib::rand rnd;
+	const int jiiterNum = 100;
 
 	std::vector<matrix<rgb_pixel>> crops;
-	for (int i = 0; i < 100; ++i)
+	for (int i = 0; i < jiiterNum; ++i)
 		crops.push_back(::jitter_image(img, rnd));
 	return crops;
 }
 
-int FaceRecognition::GetFaceFromImage() {
+int FaceRecognition::GetFaceFromImage(Mat & img) {
 	faces.clear();
+	auto frame = MatToRGB(img);
 
 	for (auto face : detector(frame)) {
 		auto shape = sp(frame, face);
@@ -46,14 +57,16 @@ int FaceRecognition::GetFaceFromImage() {
 	return faces.size();
 }
 
-void FaceRecognition::Face2Vec128D() {
-	face_descriptors = net(faces);
+void FaceRecognition::FacesToVector() {
+	//Make face to 128D vector
+	faceDescriptors.clear();
+	faceDescriptors = net(faces);
 }
 
 void FaceRecognition::MakeEdges() {
-	for (size_t i = 0; i < face_descriptors.size(); ++i)
-		for (size_t j = i; j < face_descriptors.size(); ++j)
-			if (length(face_descriptors[i] - face_descriptors[j]) < 0.6)
+	for (size_t i = 0; i < faceDescriptors.size(); ++i)
+		for (size_t j = i; j < faceDescriptors.size(); ++j)
+			if (length(faceDescriptors[i] - faceDescriptors[j]) < 0.6)
 				edges.push_back(sample_pair(i, j));
 }
 
@@ -63,15 +76,27 @@ void FaceRecognition::GetClusterNum() {
 
 void FaceRecognition::ShowClusteringResult() {
 	std::vector<image_window> win_clusters(clusterNum);
-	for (size_t cluster_id = 0; cluster_id < clusterNum; ++cluster_id)
-	{
+
+	for (size_t cluster_id = 0; cluster_id < clusterNum; ++cluster_id) {
 		std::vector<matrix<rgb_pixel>> temp;
-		for (size_t j = 0; j < labels.size(); ++j)
-		{
+		for (size_t j = 0; j < labels.size(); ++j) {
 			if (cluster_id == labels[j])
 				temp.push_back(faces[j]);
 		}
 		win_clusters[cluster_id].set_title("face cluster " + cast_to_string(cluster_id));
 		win_clusters[cluster_id].set_image(tile_images(temp));
 	}
+}
+
+void FaceRecognition::AddToSVM(Mat& img) {
+	GetFaceFromImage(img);
+
+	faceDescriptors.clear();
+
+	FacesToVector();
+
+	trainer.set_lambda(lambda);
+	trainer.set_kernel(kernelType(kernelT));
+
+	trainer.set_max_num_sv(iterCount);
 }

@@ -34,11 +34,13 @@ private:
 
 
 	std::vector<matrix<rgb_pixel>> JitterImage(const matrix<rgb_pixel>& img);
-	int GetFaceFromImage();
-	void Face2Vec128D();
+	int GetFaceFromImage(Mat & img);
+	void FacesToVector();
 	void MakeEdges();
 	void GetClusterNum();
 	void ShowClusteringResult();
+	matrix<rgb_pixel> MatToRGB(Mat& src);
+	void AddToSVM(Mat& img);
 
 	frontal_face_detector detector;
 	shape_predictor sp;
@@ -47,13 +49,24 @@ private:
 	Mat frame;
 	image_window win;
 	std::vector<matrix<rgb_pixel>> faces;
-	std::vector<matrix<float, 0, 1>> face_descriptors;
+
+	typedef matrix<float, 0, 1> faceFeature;
+	std::vector<faceFeature> faceDescriptors;	//Samples for training
+	std::vector<double> labels;					//Label for training (temporary: need to change type to string(name))
+	typedef radial_basis_kernel<faceFeature> kernelType;
+
+	svm_pegasos<kernelType> trainer;
+
+	/*************************
+	Training parameter
+	*************************/
+	const double lambda = 1e-5;
+	const double kernelT = 5e-3;
+	const int iterCount = 10;
+
 	std::vector<sample_pair> edges;
 	std::vector<unsigned long> labels;
 	ll clusterNum;
 
-	catch (std::exception& e){
-		cout << e.what() << endl;
-	}
 };
 
