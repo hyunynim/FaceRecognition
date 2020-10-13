@@ -7,7 +7,6 @@
 #include "capstone.h"
 #include "capstoneDlg.h"
 #include "afxdialogex.h"
-#include "FaceRecognition.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -105,10 +104,21 @@ BOOL CcapstoneDlg::OnInitDialog()
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
 	recognizer = new FaceRecognition();
-
+	LoadKnownImage();
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
-
+void CcapstoneDlg::LoadKnownImage() {
+	freopen("img/lists.txt", "r", stdin);
+	char fName[222];
+	while (~scanf("%s", fName)) {
+		Mat img = imread(fName);
+		imgs.push_back(img);
+	}
+}
+void CcapstoneDlg::KnownImagePreprocessing() {
+	recognizer->AddToSVM(imgs);
+	recognizer->Train();
+}
 void CcapstoneDlg::OnSysCommand(UINT nID, LPARAM lParam)
 {
 	if ((nID & 0xFFF0) == IDM_ABOUTBOX)
@@ -210,6 +220,21 @@ Mat CcapstoneDlg::hwnd2mat(HWND hwnd) {
 
 void CcapstoneDlg::OnBnClickedTestButton()
 {
+	static TCHAR BASED_CODE szFilter[] = _T("이미지 파일(*.BMP, *.GIF, *.JPG, *.PNG) | *.BMP;*.GIF;*.JPG;*.PNG;*.bmp;*.jpg;*.gif;*.png |");
+
+	CFileDialog dlg(TRUE, _T("*.jpg"), _T("image"), OFN_HIDEREADONLY, szFilter);
+
+	if (IDOK == dlg.DoModal()) {
+		string pathName = dlg.GetPathName();
+
+		Mat img = imread(pathName, IMREAD_UNCHANGED);
+		recognizer->Prediction(img);
+
+		MessageBox(pathName.c_str());
+
+	}
+	
+	
 	FaceRecognition* fr = new FaceRecognition();
 
 	return;

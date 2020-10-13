@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "FaceRecognition.h"
 
 // CcapstoneDlg 대화 상자
 class CcapstoneDlg : public CDialogEx
@@ -35,7 +36,12 @@ protected:
 	HWND hwndDesktop;		//클라이언트 정보 저장
 	string haarcascadePath = "C:\\OpenCV\\build\\etc\\haarcascades\\haarcascade_frontalface_alt.xml";
 	CascadeClassifier faceCascade;
+	FaceRecognition *recognizer;
 
+	std::vector<Mat> imgs;
+	
+	void LoadKnownImage();
+	void KnownImagePreprocessing();
 	bool HaarCascadeInit();
 	Mat hwnd2mat(HWND hwnd);
 	void DetectAndDisplay(Mat frame);

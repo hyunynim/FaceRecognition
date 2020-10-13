@@ -41,26 +41,27 @@ std::vector<matrix<rgb_pixel>> FaceRecognition::JitterImage(const matrix<rgb_pix
 	return crops;
 }
 
-int FaceRecognition::GetFaceFromImage(Mat & img) {
-	faces.clear();
-	auto frame = MatToRGB(img);
+std::vector<matrix<rgb_pixel>> FaceRecognition::GetFaceFromImage(std::vector<Mat> & imgs) {
+	std::vector<matrix<rgb_pixel>> res;
+	for (auto img : imgs) {
+		auto frame = MatToRGB(img);
 
-	for (auto face : detector(frame)) {
-		auto shape = sp(frame, face);
-		matrix<rgb_pixel> face_chip;
-		extract_image_chip(frame, get_face_chip_details(shape, 150, 0.25), face_chip);
-		faces.push_back(move(face_chip));
+		for (auto face : detector(frame)) {
+			auto shape = sp(frame, face);
+			matrix<rgb_pixel> face_chip;
+			extract_image_chip(frame, get_face_chip_details(shape, 150, 0.25), face_chip);
+			res.push_back(move(face_chip));
 
-		win.add_overlay(face);
+			//win.add_overlay(face);
+		}
 	}
-
-	return faces.size();
+	return res;
 }
 
-void FaceRecognition::FacesToVector() {
+std::vector<faceFeature> FaceRecognition::FacesToVector(std::vector<matrix<rgb_pixel>> & imgs) {
 	//Make face to 128D vector
-	faceDescriptors.clear();
-	faceDescriptors = net(faces);
+	auto res = net(imgs);
+	return res;
 }
 
 void FaceRecognition::MakeEdges() {
@@ -72,6 +73,7 @@ void FaceRecognition::MakeEdges() {
 
 void FaceRecognition::GetClusterNum() {
 	clusterNum = chinese_whispers(edges, labels);
+	
 }
 
 void FaceRecognition::ShowClusteringResult() {
@@ -88,15 +90,33 @@ void FaceRecognition::ShowClusteringResult() {
 	}
 }
 
-void FaceRecognition::AddToSVM(Mat& img) {
-	GetFaceFromImage(img);
+void FaceRecognition::AddToSVM(std::vector<Mat> & imgs) {
+	faces = GetFaceFromImage(imgs);
+	faceDescriptors = FacesToVector(faces);
+}
 
-	faceDescriptors.clear();
-
-	FacesToVector();
-
+void FaceRecognition::Train() {
 	trainer.set_lambda(lambda);
 	trainer.set_kernel(kernelType(kernelT));
-
 	trainer.set_max_num_sv(iterCount);
+
+
+	for (int i = 0; i < faceDescriptors.size(); ++i) 
+		labels.push_back(i + 1);
+
+	df = verbose_batch_cached(trainer, 0.1).train(faceDescriptors, labels);
+}
+std::vector<faceFeature> FaceRecognition::MatToFaceFeture(Mat& img) {
+	auto unknownFaces = GetFaceFromImage(std::vector<Mat>{img});
+	auto feature = FacesToVector(unknownFaces);
+	return feature;
+}
+
+float FaceRecognition::Prediction(Mat& img) {
+	auto feature = MatToFaceFeture(img);
+	FILE * fp = freopen("result.txt", "w", stdout);
+	for (int i = 0; i < feature.size(); ++i) {
+		printf("%f\n", df(feature[i]));
+	}
+	fclose(fp);
 }

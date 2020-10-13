@@ -1,4 +1,7 @@
 #pragma once
+typedef matrix<float, 0, 1> faceFeature;
+typedef radial_basis_kernel<faceFeature> kernelType;
+
 class FaceRecognition{
 public:
 	FaceRecognition();
@@ -31,17 +34,7 @@ private:
 		max_pool<3, 3, 2, 2, relu<affine<con<32, 7, 7, 2, 2,
 		input_rgb_image_sized<150>
 		>>>>>>>>>>>>;
-
-
-	std::vector<matrix<rgb_pixel>> JitterImage(const matrix<rgb_pixel>& img);
-	int GetFaceFromImage(Mat & img);
-	void FacesToVector();
-	void MakeEdges();
-	void GetClusterNum();
-	void ShowClusteringResult();
-	matrix<rgb_pixel> MatToRGB(Mat& src);
-	void AddToSVM(Mat& img);
-
+protected:
 	frontal_face_detector detector;
 	shape_predictor sp;
 	anet_type net;
@@ -50,12 +43,14 @@ private:
 	image_window win;
 	std::vector<matrix<rgb_pixel>> faces;
 
-	typedef matrix<float, 0, 1> faceFeature;
+	
+
 	std::vector<faceFeature> faceDescriptors;	//Samples for training
-	std::vector<double> labels;					//Label for training (temporary: need to change type to string(name))
-	typedef radial_basis_kernel<faceFeature> kernelType;
+	std::vector<unsigned long> labels;					//Label for training (temporary: need to change type to string(name))
+	
 
 	svm_pegasos<kernelType> trainer;
+	decision_function<kernelType> df;
 
 	/*************************
 	Training parameter
@@ -65,8 +60,19 @@ private:
 	const int iterCount = 10;
 
 	std::vector<sample_pair> edges;
-	std::vector<unsigned long> labels;
 	ll clusterNum;
 
+public:
+	std::vector<matrix<rgb_pixel>> JitterImage(const matrix<rgb_pixel>& img);
+	std::vector<matrix<rgb_pixel>> GetFaceFromImage(std::vector<Mat> & imgs);
+	std::vector<faceFeature> FacesToVector(std::vector<matrix<rgb_pixel>> & imgs);
+	void MakeEdges();
+	void GetClusterNum();
+	void ShowClusteringResult();
+	matrix<rgb_pixel> MatToRGB(Mat& src);
+	void AddToSVM(std::vector<Mat> & imgs);
+	void Train();
+	std::vector<faceFeature> MatToFaceFeture(Mat& img);
+	float Prediction(Mat& img);
 };
 
