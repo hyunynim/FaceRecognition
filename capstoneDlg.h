@@ -48,6 +48,8 @@ protected:
 	Mat hwnd2mat(HWND hwnd);
 	void DetectAndDisplay(Mat frame);
 
+	void SelfTrain();
+
 public:
 	afx_msg void OnBnClickedTestButton();
 	afx_msg void OnBnClickedLoadimage();

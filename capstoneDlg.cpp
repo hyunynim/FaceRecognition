@@ -104,21 +104,28 @@ BOOL CcapstoneDlg::OnInitDialog()
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
 	recognizer = new FaceRecognition();
-	LoadKnownImage();
-	KnownImagePreprocessing();
 
+	
+	//This codes for self train.
+	//But not recommend.
+	//Use trainer.
+	//SelfTrain();
+
+	recognizer->LoadModel();
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
+void CcapstoneDlg::SelfTrain() {
+	LoadKnownImage();
+	KnownImagePreprocessing();
+}
 void CcapstoneDlg::LoadKnownImage() {
-	freopen("img/list.txt", "r", stdin);
+	freopen("list.txt", "r", stdin);
 	FILE * err = freopen("err.txt", "w", stdout);
 	std::string fName;
 	while (~scanf("%[^\n]", fName.c_str())) {
 		getchar();
 		Mat img = imread(fName.c_str(), -1);
-		if (img.empty()) {
-			MessageBox("tq"); continue;
-		}
+		if (img.empty()) continue;
 		imgs.push_back(img);
 		
 		std::string crop = NameCropping(fName);
@@ -143,10 +150,13 @@ std::string CcapstoneDlg::NameCropping(std::string & str) {
 	return res;
 }
 void CcapstoneDlg::KnownImagePreprocessing() {
-	recognizer->AddToSVM(imgs);
-	recognizer->SamplingForTraining();
-	recognizer->SetLabels(imgName);
-	recognizer->Train();
+	
+	//recognizer->AddToSVM(imgs);
+	//recognizer->SamplingForTraining();
+	//recognizer->SetLabels(imgName);
+	//recognizer->Train();
+	
+	recognizer->LoadModel();
 }
 void CcapstoneDlg::OnSysCommand(UINT nID, LPARAM lParam)
 {

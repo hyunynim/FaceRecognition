@@ -1,5 +1,6 @@
 #define DLIB_JPEG_SUPPORT
 #define DLIB_USE_CUDA
+#define DEBUG
 #include <dlib/dnn.h>
 #include <dlib/gui_widgets.h>
 #include <dlib/clustering.h>
@@ -41,6 +42,21 @@ using anet_type = loss_metric<fc_no_bias<128, avg_pool_everything<
 	input_rgb_image_sized<150>
 	>>>>>>>>>>>>;
 
+char msg[1010];
+string rootDir = "..\\";
+typedef long long ll;
+
+typedef matrix<float, 128, 1> sampleType;
+
+typedef radial_basis_kernel<sampleType> kernelType;
+typedef linear_kernel<sampleType> lineearKernel;
+
+frontal_face_detector detector = get_frontal_face_detector();
+
+shape_predictor sp;
+anet_type net;
+multiclass_linear_decision_function<lineearKernel, string> df;
+
 std::vector<matrix<rgb_pixel>> JitterImage(const matrix<rgb_pixel>& img) {
 	// All this function does is make 100 copies of img, all slightly jittered by being
 	// zoomed, rotated, and translated a little bit differently. They are also randomly
@@ -54,45 +70,167 @@ std::vector<matrix<rgb_pixel>> JitterImage(const matrix<rgb_pixel>& img) {
 	return crops;
 }
 
+void PrintLog(char * msg) {
+#ifdef DEBUG
+	puts(msg);
+#endif
+}
+void PrintLog(const char* msg) {
+#ifdef DEBUG
+	puts(msg);
+#endif
+}
+void MakeFileList(string dir) {
+	FILE* fp = fopen((rootDir + "list.txt").c_str(), "w");
+	fclose(fp);
+	sprintf(msg, "dir %s /b >> %s\\list.txt", dir.c_str(), rootDir.c_str());
+	system(msg);
+}
+std::vector<matrix<rgb_pixel>> LoadImages(std::vector<std::string> & labels, std::string imgDir) {
+	MakeFileList(rootDir + imgDir);
+
+	FILE* fp = fopen((rootDir + "list.txt").c_str(), "r");
+	std::vector<matrix<rgb_pixel>> imgs;
+	matrix<rgb_pixel> img;
+	std::vector<std::string> exp = { ".jpg", ".jpeg", ".png" };
+	char cTmp;
+	while (~fscanf(fp, "%[^\n]", msg)) {
+		fscanf(fp, "%c", &cTmp);
+		string strTmp = msg;
+		for (int i = 0; i < strTmp.size(); ++i)
+			if ('A' <= strTmp[i] && strTmp[i] <= 'Z')
+				strTmp[i] += 'a' - 'A';
+		ll pos = std::string::npos;
+		for (int i = 0; i < exp.size(); ++i) {
+			pos = strTmp.find(exp[i]);
+			if (pos != std::string::npos)
+				break;
+		}
+		if (pos == std::string::npos) continue;
+		pos = strTmp.find('\n');
+		if (pos != std::string::npos)
+			strTmp = strTmp.substr(0, pos);
+		PrintLog(strTmp.c_str());
+		load_image(img, (rootDir + imgDir + strTmp).c_str());
+		imgs.push_back(img);
+		
+		auto crop = strTmp.find('.');
+		if (crop != std::string::npos)
+			strTmp = strTmp.substr(0, crop);
+		labels.push_back(strTmp);
+	}
+	fclose(fp);
+	return imgs;
+}
+
+void TestModel() {
+	std::vector<sampleType> samples;
+	std::vector<string> labels;;
+
+	PrintLog("Test start...");
+
+	PrintLog("Load test images");
+	std::vector<matrix<rgb_pixel>> anne = LoadImages(labels, "test\\anne_hathaway\\");
+	std::vector<matrix<rgb_pixel>> hong = LoadImages(labels, "test\\honghyun\\");
+	std::vector<matrix<rgb_pixel>> jung = LoadImages(labels, "test\\jungjae_lee\\");
+	std::vector<matrix<rgb_pixel>> margot = LoadImages(labels, "test\\margot_robbie\\");
+	std::vector<matrix<rgb_pixel>> sheldon = LoadImages(labels, "test\\sheldon_cooper\\");
+	std::vector<matrix<rgb_pixel>> unknown = LoadImages(labels, "test\\unknown\\");
+	std::vector<matrix<rgb_pixel>> imgs;
+	PrintLog("Done...\n");
+
+	labels.clear();
+
+	PrintLog("Make labels");
+	for (int i = 0; i < anne.size(); ++i) {
+		imgs.push_back(anne[i]);
+		labels.push_back("anne hathaway");
+	}
+	for (int i = 0; i < hong.size(); ++i) {
+		imgs.push_back(hong[i]);
+		labels.push_back("honghyun ahn");
+	}
+	for (int i = 0; i < jung.size(); ++i) {
+		imgs.push_back(jung[i]);
+		labels.push_back("jungjae lee");
+	}
+	for (int i = 0; i < margot.size(); ++i) {
+		imgs.push_back(margot[i]);
+		labels.push_back("margot robbie");
+	}
+	for (int i = 0; i < sheldon.size(); ++i) {
+		imgs.push_back(sheldon[i]);
+		labels.push_back("sheldon cooper");
+	}
+	for (int i = 0; i < unknown.size(); ++i) {
+		imgs.push_back(unknown[i]);
+		labels.push_back("unknown");
+	}
+	PrintLog("Done...\n");
+
+	PrintLog("Crop faces");
+	std::vector<matrix<rgb_pixel>> faces;
+	for (auto img : imgs) {
+		for (auto face : detector(img))
+		{
+			auto shape = sp(img, face);
+			matrix<rgb_pixel> face_chip;
+			extract_image_chip(img, get_face_chip_details(shape, 150, 0.25), face_chip);
+			faces.push_back(move(face_chip));
+		}
+	}
+	PrintLog("Done...\n");
+
+	PrintLog("Make faces to feature");
+	std::vector<matrix<float, 0, 1>> fd = net(faces);
+	PrintLog("Done...");
+
+	PrintLog("Start prediction");
+	int ans = 0;
+	for (int i = 0; i < fd.size(); ++i) {
+		sampleType sample;
+		int j = 0;
+		for (auto it = fd[i].begin(); it != fd[i].end(); ++it) {
+			sample(j++) = *it;
+		}
+		auto res = df.predict(sample);
+		printf("Pred(%d): %s(%f)\n", i + 1, res.first, res.second);
+		if (res.first == labels[i]) ++ans;
+	}
+	printf("pass: %d, fail: %d\n", ans, fd.size() - ans);
+}
 int main() {
+	string imgDir = "img\\";
+	std::vector<sampleType> samples;
+	std::vector<string> labels;
 
 	clock_t est = clock(), eed;
 	clock_t st, ed;
-	printf("Model Loading...\n");
+
+	PrintLog("Model Loading...");
+
 	st = clock();
-	frontal_face_detector detector = get_frontal_face_detector();
+	deserialize(rootDir + "model\\shape_predictor_5_face_landmarks.dat") >> sp;
 
-	shape_predictor sp;
-	deserialize("../shape_predictor_5_face_landmarks.dat") >> sp;
-
-	anet_type net;
-	deserialize("../dlib_face_recognition_resnet_model_v1.dat") >> net;
+	deserialize(rootDir + "model\\dlib_face_recognition_resnet_model_v1.dat") >> net;
 	ed = clock();
-	printf("Done(%dms)\n\n", ed - st);
+	sprintf(msg, "Done(%dms)\n", ed - st);
+	PrintLog(msg);
 
-	printf("Image loading...\n");
+	sprintf(msg, "Image loading...");
+	PrintLog(msg);
+
 	st = clock();
-
-	std::vector<matrix<rgb_pixel>> imgs;
-
-	matrix<rgb_pixel> tmp1, tmp2, tmp3, tmp4;
-	load_image(tmp1, "../1.jpg");
-	imgs.push_back(tmp1);
-
-	load_image(tmp2, "../2.jpg");
-	imgs.push_back(tmp2);
-
-	load_image(tmp3, "../3.jpg");
-	imgs.push_back(tmp3);
-
-	load_image(tmp4, "../test.jpg");
-	imgs.push_back(tmp4);
+	std::vector<matrix<rgb_pixel>> imgs = LoadImages(labels, imgDir);
 
 	ed = clock();
-	printf("Done(%dms)\n\n", ed - st);
+	sprintf(msg, "Done(%dms)\n", ed - st);
+	PrintLog(msg);
 
 
-	printf("Extract faces in image...\n");
+	sprintf(msg, "Extract faces in image...");
+	PrintLog(msg);
+
 	st = clock();
 	std::vector<matrix<rgb_pixel>> faces;
 	for (auto img : imgs) {
@@ -105,80 +243,63 @@ int main() {
 		}
 	}
 	ed = clock();
-	printf("Done(%dms)\n\n", ed - st);
+	sprintf(msg, "Done(%dms)\n", ed - st);
+	PrintLog(msg);
 
 	if (faces.size() == 0)
 	{
 		cout << "No faces found in image!" << endl;
 		return 1;
 	}
-	cout << "\n[Result]: " << faces.size() << "faces found in image" << "\n\n";
-	std::vector<matrix<rgb_pixel>> tmp = { faces[0], faces[1], faces[2] };
-	auto cTmp = tmp;
-	tmp.clear();
-	for (int i = 0; i < 3; ++i) {
-		auto res = JitterImage(cTmp[i]);
-		for (auto img : res)
-			tmp.push_back(img);
-	}
-	printf("Make face to vector...\n");
+	sprintf(msg, "\n[Result]: %d faces found in image", faces.size());
+	PrintLog(msg);
+
+	sprintf(msg, "Make face to vector...");
+	PrintLog(msg);
 	st = clock();
-	std::vector<matrix<float, 0, 1>> face_descriptors = net(faces);
-	std::vector<matrix<float, 0, 1>> fd2 = net(tmp);
+	std::vector<matrix<float, 0, 1>> faceDescriptors = net(faces);
 	ed = clock();
-	printf("Done(%dms)\n\n", ed - st);
-	printf("%d %d\n", face_descriptors[0].nc(), face_descriptors[0].nr());
-	typedef matrix<float, 128, 1> sample_type;
 
+	sprintf(msg, "Done(%dms)\n", ed - st);
+	PrintLog(msg);
 
-	typedef radial_basis_kernel<sample_type> kernel_type;
-	typedef linear_kernel<sample_type> lineearKernel;
+	sprintf(msg, "Make trainer");
+	PrintLog(msg);
+	svm_multiclass_linear_trainer<lineearKernel, string> trainer;
 
+	sprintf(msg, "[DEBUG]: Set vector");
+	PrintLog(msg);
 
-	puts("Make trainer");
-	svm_pegasos<kernel_type> trainer;
-
-	svm_multiclass_linear_trainer<lineearKernel, string> trainer2;
-
-	puts("[DEBUG]: Set vector");
-	std::vector<sample_type> samples;
-	std::vector<string> labels;
-
-	sample_type sample;
-	puts("[DEBUG]: Make samples");
-	printf("\t %d \t\n", fd2.size());
-	for (int i = 0; i < fd2.size(); ++i) {
+	sampleType sample;
+	sprintf(msg, "[DEBUG]: Make samples");
+	PrintLog(msg);
+	for (int i = 0; i < faceDescriptors.size(); ++i) {
 		int j = 0;
-		puts("[DEBUG]: Allocating");
-		for (auto it = fd2[i].begin(); it != fd2[i].end(); ++it) {
+
+		sprintf(msg, "[DEBUG]: Allocating");
+		PrintLog(msg);
+
+		for (auto it = faceDescriptors[i].begin(); it != faceDescriptors[i].end(); ++it) 
 			sample(j++) = *it;
-		}
-		puts("[DEBUG]: Done");
+		
+		sprintf(msg, "[DEBUG]: Done");
+		PrintLog(msg);
+
 		samples.push_back(sample);
-		if (i / 100 == 0)
-			labels.push_back("honghyun");
-		else if (i / 100 == 1)
-			labels.push_back("cooper");
-		else if (i / 100 == 2)
-			labels.push_back("¸ô¶ó ´©±ºÁö");
 	}
-	trainer2.set_max_iterations(1000000);
-	trainer2.set_num_threads(10);
-	trainer2.set_epsilon(0.00001);
-	trainer2.set_c(1);
-	trainer2.set_learns_nonnegative_weights(false);
+	trainer.set_max_iterations(1000000);
+	trainer.set_num_threads(10);
+	trainer.set_epsilon(1e-4);
+	trainer.set_c(1);
+	trainer.set_learns_nonnegative_weights(true);
 
-	trainer2.be_verbose();
+	trainer.be_verbose();
 
-	sample_type s2;
-	int j = 0;
-	for (auto it = face_descriptors[3].begin(); it != face_descriptors[3].end(); ++it) {
-		s2(j++) = *it;
-	}
-	multiclass_linear_decision_function<lineearKernel, string> df = trainer2.train(samples, labels);
+	df = trainer.train(samples, labels);
 
-	auto res = df.predict(s2);
-	serialize("pretrained.dat") << df;
-	cout << res.first << ' ' << res.second;	//threshold is about 0.1
+	sprintf(msg, "%d class in data", df.number_of_classes());
+	PrintLog(msg);
 
+	TestModel();
+	serialize(rootDir + "model\\pretrained.dat") << df;
 }

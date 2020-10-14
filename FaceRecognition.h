@@ -70,6 +70,7 @@ public:
 	sampleType FaceFeatureToSample(faceFeature& ft);
 	sampleType MatToSample(Mat& img);
 
+	void LoadModel();
 	void SetLabels(std::vector<std::string>& labels);
 	void SamplingForTraining();
 	void MakeEdges();

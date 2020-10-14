@@ -1,13 +1,13 @@
 #include "pch.h"
 #include "FaceRecognition.h"
 const int DEBUGING = 0;
-
+string rootDir = "";
 FaceRecognition::FaceRecognition() {
 	detector = get_frontal_face_detector();
 
-	deserialize("shape_predictor_5_face_landmarks.dat") >> sp;
+	deserialize(rootDir + "model\\shape_predictor_5_face_landmarks.dat") >> sp;
 
-	deserialize("dlib_face_recognition_resnet_model_v1.dat") >> net;
+	deserialize(rootDir + "model\\dlib_face_recognition_resnet_model_v1.dat") >> net;
 
 	if (DEBUGING) {
 		matrix<rgb_pixel> img;
@@ -63,7 +63,9 @@ std::vector<faceFeature> FaceRecognition::FacesToVector(std::vector<matrix<rgb_p
 	auto res = net(imgs);
 	return res;
 }
-
+void FaceRecognition::LoadModel() {
+	deserialize("model\\pretrained.dat") >> decisionFunction;
+}
 void FaceRecognition::MakeEdges() {
 }
 
@@ -97,7 +99,7 @@ void FaceRecognition::Train() {
 
 	decisionFunction = trainer.train(samples, labels);
 
-	deserialize("pretrained.dat") >> decisionFunction;
+	deserialize(rootDir + "model\\pretrained.dat") >> decisionFunction;
 	char msg[12];
 	sprintf(msg, "%d", decisionFunction.number_of_classes());
 	MessageBox(0, msg, 0, 0);
