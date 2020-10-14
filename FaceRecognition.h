@@ -1,6 +1,7 @@
 #pragma once
-typedef matrix<float, 1, 128> faceFeature;
-typedef radial_basis_kernel<faceFeature> kernelType;
+typedef matrix<float, 0, 1> faceFeature;
+typedef matrix<float, 128, 1> sampleType;
+typedef linear_kernel<sampleType> lineearKernel;
 
 class FaceRecognition{
 public:
@@ -45,27 +46,32 @@ protected:
 
 	
 
-	std::vector<faceFeature> faceDescriptors;	//Samples for training
-	std::vector<unsigned long> labels;					//Label for training (temporary: need to change type to string(name))
+	std::vector<matrix<float, 0, 1>> faceDescriptors;	
 	
+	std::vector<sampleType> samples;	//Samples for training
+	std::vector<string> labels;			//Label for training (temporary: need to change type to string(name))
 
-	svm_pegasos<kernelType> trainer;
-	decision_function<kernelType> df;
-
+	svm_multiclass_linear_trainer<lineearKernel, string> trainer;
+	multiclass_linear_decision_function<lineearKernel, string> decisionFunction;
+	
 	/*************************
 	Training parameter
 	*************************/
-	const double lambda = 1e-5;
-	const double kernelT = 5e-3;
-	const int iterCount = 10;
-
-	std::vector<sample_pair> edges;
-	ll clusterNum;
-
+	const float trainC = 1.0;
+	const float trainEpsilon = 1e-3;
+	const bool trainNonnegativeWeight = true;
+	const int trainMaxIteration = 1e8;
+	const int trainNumThread = 10;
 public:
 	std::vector<matrix<rgb_pixel>> JitterImage(const matrix<rgb_pixel>& img);
 	std::vector<matrix<rgb_pixel>> GetFaceFromImage(std::vector<Mat> & imgs);
 	std::vector<faceFeature> FacesToVector(std::vector<matrix<rgb_pixel>> & imgs);
+
+	sampleType FaceFeatureToSample(faceFeature& ft);
+	sampleType MatToSample(Mat& img);
+
+	void SetLabels(std::vector<std::string>& labels);
+	void SamplingForTraining();
 	void MakeEdges();
 	void GetClusterNum();
 	void ShowClusteringResult();
@@ -73,6 +79,6 @@ public:
 	void AddToSVM(std::vector<Mat> & imgs);
 	void Train();
 	std::vector<faceFeature> MatToFaceFeture(Mat& img);
-	float Prediction(Mat& img);
+	std::vector<std::string> Prediction(Mat& img);
 };
 

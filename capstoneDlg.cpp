@@ -113,20 +113,39 @@ void CcapstoneDlg::LoadKnownImage() {
 	freopen("img/list.txt", "r", stdin);
 	FILE * err = freopen("err.txt", "w", stdout);
 	std::string fName;
-	while (~scanf("%s", fName.c_str())) {
+	while (~scanf("%[^\n]", fName.c_str())) {
+		getchar();
 		Mat img = imread(fName.c_str(), -1);
-		imgs.push_back(img);
 		if (img.empty()) {
-			MessageBox("tq");
+			MessageBox("tq"); continue;
 		}
-		printf("Name: %s\n", fName.c_str());
+		imgs.push_back(img);
+		
+		std::string crop = NameCropping(fName);
+		
+		imgName.push_back(crop);
+		printf("Name: %s\n", imgName.back().c_str());
 		printf("depth: %d\n", img.depth());
 		printf("channel: %d\n", img.channels());
 	}
 	fclose(err);
 }
+std::string CcapstoneDlg::NameCropping(std::string & str) {
+	std::string res = str;
+	auto slash = res.find('/');
+	if (slash != string::npos)
+		res = res.substr(slash +1);
+	
+	auto dotPos = res.find('.');
+	if (dotPos != std::string::npos)
+		res = res.substr(0, dotPos);
+
+	return res;
+}
 void CcapstoneDlg::KnownImagePreprocessing() {
 	recognizer->AddToSVM(imgs);
+	recognizer->SamplingForTraining();
+	recognizer->SetLabels(imgName);
 	recognizer->Train();
 }
 void CcapstoneDlg::OnSysCommand(UINT nID, LPARAM lParam)
@@ -240,8 +259,6 @@ void CcapstoneDlg::OnBnClickedTestButton()
 		Mat img = imread(pathName, IMREAD_UNCHANGED);
 		recognizer->Prediction(img);
 
-		MessageBox(pathName.c_str());
-
 	}
 	
 	
@@ -305,7 +322,10 @@ void CcapstoneDlg::OnBnClickedLoadimage()
 		string pathName = dlg.GetPathName();
 
 		Mat img = imread(pathName, IMREAD_UNCHANGED);
-		MessageBox(pathName.c_str());
+		auto res = recognizer->Prediction(img);
+		//for (int i = 0; i < res.size(); ++i)
+			//MessageBox(res[i].c_str());
+		//MessageBox(pathName.c_str());
 
 	}
 }

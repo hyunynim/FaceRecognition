@@ -19,6 +19,9 @@
 #include<dlib/image_io.h>
 #include<dlib/image_processing/frontal_face_detector.h>
 #include<dlib/opencv.h>
+#include<dlib/svm.h>
+#include <dlib/svm_threaded.h>
+
 using namespace dlib;
 
 #include<opencv2/imgproc.hpp>

@@ -65,29 +65,12 @@ std::vector<faceFeature> FaceRecognition::FacesToVector(std::vector<matrix<rgb_p
 }
 
 void FaceRecognition::MakeEdges() {
-	for (size_t i = 0; i < faceDescriptors.size(); ++i)
-		for (size_t j = i; j < faceDescriptors.size(); ++j)
-			if (length(faceDescriptors[i] - faceDescriptors[j]) < 0.6)
-				edges.push_back(sample_pair(i, j));
 }
 
-void FaceRecognition::GetClusterNum() {
-	clusterNum = chinese_whispers(edges, labels);
-	
+void FaceRecognition::GetClusterNum() {	
 }
 
 void FaceRecognition::ShowClusteringResult() {
-	std::vector<image_window> win_clusters(clusterNum);
-
-	for (size_t cluster_id = 0; cluster_id < clusterNum; ++cluster_id) {
-		std::vector<matrix<rgb_pixel>> temp;
-		for (size_t j = 0; j < labels.size(); ++j) {
-			if (cluster_id == labels[j])
-				temp.push_back(faces[j]);
-		}
-		win_clusters[cluster_id].set_title("face cluster " + cast_to_string(cluster_id));
-		win_clusters[cluster_id].set_image(tile_images(temp));
-	}
 }
 
 void FaceRecognition::AddToSVM(std::vector<Mat> & imgs) {
@@ -96,17 +79,33 @@ void FaceRecognition::AddToSVM(std::vector<Mat> & imgs) {
 }
 
 void FaceRecognition::Train() {
-	trainer.set_lambda(lambda);
-	trainer.set_kernel(kernelType(kernelT));
-	trainer.set_max_num_sv(iterCount);
 
+	trainer.set_c(trainC);
+	trainer.set_epsilon(trainEpsilon);
+	trainer.set_learns_nonnegative_weights(trainNonnegativeWeight);
+	trainer.set_max_iterations(trainMaxIteration);
+	trainer.set_num_threads(trainNumThread);
+	trainer.be_verbose();
+	FILE* fp = freopen("er.txt", "w", stdout);
+	printf("%d %d\n", samples.size(), labels.size());
+	for (int i = 0; i < samples.size(); ++i) {
+		for (int j = 0; j < samples[i].nr(); ++j)
+			printf("%f ", samples[i](j));
+		printf("\t%s", labels[i].c_str());
+		puts("");
+	}
 
-	for (int i = 0; i < faceDescriptors.size(); ++i) 
-		labels.push_back(i + 1);
-	MessageBox(NULL, "Parameters setting done", 0, 0);
-	//cross_validate_trainer(batch_cached(trainer, 0.1), faceDescriptors, labels, 4);
-	MessageBox(NULL, "cross_validate_trainer setting done", 0, 0);
-	df = verbose_batch_cached(trainer, 0.1).train(faceDescriptors, labels);
+	decisionFunction = trainer.train(samples, labels);
+
+	deserialize("pretrained.dat") >> decisionFunction;
+	char msg[12];
+	sprintf(msg, "%d", decisionFunction.number_of_classes());
+	MessageBox(0, msg, 0, 0);
+	puts("\n\n");
+	printf("%d \n", decisionFunction.number_of_classes());
+	for (int i = 0; i < decisionFunction.weights.nc(); ++i) {
+		printf("%f ", decisionFunction.weights(i));
+	}
 }
 std::vector<faceFeature> FaceRecognition::MatToFaceFeture(Mat& img) {
 	auto unknownFaces = GetFaceFromImage(std::vector<Mat>{img});
@@ -114,12 +113,43 @@ std::vector<faceFeature> FaceRecognition::MatToFaceFeture(Mat& img) {
 	return feature;
 }
 
-float FaceRecognition::Prediction(Mat& img) {
-	auto feature = MatToFaceFeture(img);
-	FILE * fp = freopen("result.txt", "w", stdout);
-	for (int i = 0; i < feature.size(); ++i) {
-		printf("%f\n", df(feature[i]));
+std::vector<std::string> FaceRecognition::Prediction(Mat& img) {
+	auto features = MatToFaceFeture(img);
+	std::vector<std::string> res;
+	freopen("er.txt", "w", stdout);
+	for (int i = 0; i < features.size(); ++i) {
+		auto sample = FaceFeatureToSample(features[i]);
+		for (int j = 0; j < sample.nr(); ++j)
+			printf("%f ", sample(j));
+		auto pred = decisionFunction.predict(sample);
+		res.push_back(pred.first);
+
+		char msg[1234];
+		sprintf(msg, "%s(%f)", pred.first, pred.second);
+		MessageBox(0, msg, 0, 0);
 	}
-	fclose(fp);
-	return 0.0;
+	
+	return res;
+}
+sampleType FaceRecognition::MatToSample(Mat& img) {
+	sampleType res;
+}
+sampleType FaceRecognition::FaceFeatureToSample(faceFeature& ft) {
+	sampleType res;
+	int i = 0;
+	for (auto it = ft.begin(); it != ft.end(); ++it)
+		res(i++) = *it;
+	return res;
+}
+
+void FaceRecognition::SamplingForTraining() {
+	samples.clear();
+	for (int i = 0; i < faceDescriptors.size(); ++i) {
+		samples.push_back(FaceFeatureToSample(faceDescriptors[i]));
+		//Need to add labels processing
+	}
+}
+
+void FaceRecognition::SetLabels(std::vector<std::string>& labels) {
+	this->labels = labels;
 }

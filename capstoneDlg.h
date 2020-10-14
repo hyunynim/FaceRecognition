@@ -39,7 +39,9 @@ protected:
 	FaceRecognition *recognizer;
 
 	std::vector<Mat> imgs;
+	std::vector<std::string> imgName;
 	
+	std::string NameCropping(string & str);
 	void LoadKnownImage();
 	void KnownImagePreprocessing();
 	bool HaarCascadeInit();
