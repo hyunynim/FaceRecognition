@@ -110,7 +110,9 @@ std::vector<matrix<rgb_pixel>> LoadImages(std::vector<std::string> & labels, std
 		pos = strTmp.find('\n');
 		if (pos != std::string::npos)
 			strTmp = strTmp.substr(0, pos);
-		PrintLog(strTmp.c_str());
+
+		//PrintLog(strTmp.c_str());
+
 		load_image(img, (rootDir + imgDir + strTmp).c_str());
 		imgs.push_back(img);
 		
@@ -166,6 +168,7 @@ void TestModel() {
 		imgs.push_back(unknown[i]);
 		labels.push_back("unknown");
 	}
+	int totCount[6] = { anne.size(), hong.size(), jung.size(), margot.size(), sheldon.size(), unknown.size() };
 	PrintLog("Done...\n");
 
 	PrintLog("Crop faces");
@@ -185,19 +188,46 @@ void TestModel() {
 	std::vector<matrix<float, 0, 1>> fd = net(faces);
 	PrintLog("Done...");
 
+
 	PrintLog("Start prediction");
-	int ans = 0;
-	for (int i = 0; i < fd.size(); ++i) {
-		sampleType sample;
-		int j = 0;
-		for (auto it = fd[i].begin(); it != fd[i].end(); ++it) {
-			sample(j++) = *it;
+	float failThreshold = 0.02;
+	for (float thresholdScore = 0.01; thresholdScore >= 0.0001; thresholdScore -= 0.001) {
+		double scores[6] = { 0.0f };
+		int ans = 0;
+		int ansCount[6] = { 0 };
+		int ddd = totCount[0];
+		int idx = 0;
+		for (int i = 0; i < fd.size(); ++i) {
+			sampleType sample;
+			int j = 0;
+			for (auto it = fd[i].begin(); it != fd[i].end(); ++it) {
+				sample(j++) = *it;
+			}
+			auto res = df.predict(sample);
+			if (i == ddd) {
+				++idx;
+				ddd += totCount[idx];
+			}
+			//printf("Pred(%d): %s(%f)\n", i + 1, res.first, res.second);
+			if (res.first == labels[i] && thresholdScore <= res.second) {
+				scores[idx] += res.second;
+				++ansCount[idx];
+				++ans;
+			}
+			if (i >= 77)
+				scores[5] += res.second;
 		}
-		auto res = df.predict(sample);
-		printf("Pred(%d): %s(%f)\n", i + 1, res.first, res.second);
-		if (res.first == labels[i]) ++ans;
+		int tot1 = 0, tot2 = 0;
+		for (int i = 0; i < 5; ++i)
+			tot2 += totCount[i], tot1 += ansCount[i];
+		printf("Threshold score: %f\n", thresholdScore);
+		printf("pass: %d, fail: %d\n", ans, fd.size() - ans);
+		for (int i = 0; i < 6; ++i) {
+			printf("Mean score(%d): %.8lf (%d/%d)\n", i, scores[i] / ansCount[i], ansCount[i], totCount[i]);
+		}
+		printf("Total %d/%d\n", tot1, tot2);
+		puts("\n\n");
 	}
-	printf("pass: %d, fail: %d\n", ans, fd.size() - ans);
 }
 int main() {
 	string imgDir = "img\\";
